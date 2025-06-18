@@ -298,6 +298,9 @@ jobs:
             echo 'CONFIG_LOCALVERSION_AUTO=n' >> out/.config
             sed -i '/res="$res${scm:++}"/d' scripts/setlocalversion
             echo 'CONFIG_KPROBES=n' >> out/.config
+            echo 'CONFIG_KSU_WITH_KPROBES=n' >> out/.config
+            echo 'CONFIG_KSU_SUSFS_SUS_SU=n' >> out/.config
+
 
         - name: 'Build kernel'
           working-directory: './kernel-src'
