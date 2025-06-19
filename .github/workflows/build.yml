@@ -257,12 +257,12 @@ jobs:
             # Clone the repository which contains the patch
             git clone --depth=1 https://github.com/devnoname120/kernelsu-coccinelle.git
 
-            cd ./kernelsu-coccinelle
+            cd ./kernelsu-coccinelle/scope-minimized-hooks/
+            chmod +x apply.sh
             # Patch the kernel source with scope-minimized hooks
-            spatch --sp-file input_handle_event.cocci --in-place --linux-spacing ../drivers/input/input.c
-            find . -iname '*.cocci' | xargs -I{} -P0 spatch --sp-file {} --dir ../fs --in-place --linux-spacing
+            ./apply.sh ../../
             
-            cd ..
+            cd ../../
 
             # Cleanup
             rm -rf ./kernelsu-coccinelle/
