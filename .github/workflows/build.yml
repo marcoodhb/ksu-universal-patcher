@@ -321,10 +321,11 @@ jobs:
         - name: 'Organize boot artifacts'
           working-directory: './kernel-src'
           run: |
-            # Copy all boot-related build artifacts into a seperate folder
-            mkdir -p ../kernel-build-artifacts-${{ github.event.inputs.KERNEL_ARCH }}-$(date +"%Y%m%d")/
-            cp -rf out/arch/${{ github.event.inputs.KERNEL_ARCH }}/boot/* ../kernel-build-artifacts*/
-
+            ARTIFACT_DIR="../kernel-build-artifacts-${{ github.event.inputs.KERNEL_ARCH }}-$(date +"%Y%m%d")"
+            mkdir -p "$ARTIFACT_DIR"
+            cp -rf out/arch/${{ github.event.inputs.KERNEL_ARCH }}/boot/* "$ARTIFACT_DIR/"
+            cp out/.config "$ARTIFACT_DIR/kernel.config"
+        
         - name: 'Upload kernel build artifacts'
           uses: actions/upload-artifact@v4
           with:
