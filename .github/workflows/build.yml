@@ -239,7 +239,7 @@ jobs:
                 echo "--- KernelSU git link and branch points to a valid git repo! ---"
             	git clone ${{ github.event.inputs.KSU_GIT }} -b ${{ github.event.inputs.KSU_GIT_BRANCH }} ./KernelSU
                 cd KernelSU
-                git checkout fa5c545b4bee8ed599e028122568d2cb093f9b3c
+                git checkout ba16e0c83ffa23d0ce8905961d7553328159b8b8
                 cd ..
             elif git ls-remote ${{ github.event.inputs.KSU_GIT }} > /dev/null; then
                 echo "--- KernelSU git link points to a valid git repo, but the branch specified is invalid, please specify the branch properly! ---"
