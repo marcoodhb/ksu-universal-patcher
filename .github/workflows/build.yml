@@ -238,9 +238,6 @@ jobs:
             if git ls-remote ${{ github.event.inputs.KSU_GIT }} | grep -w "${{ github.event.inputs.KSU_GIT_BRANCH }}" > /dev/null; then
                 echo "--- KernelSU git link and branch points to a valid git repo! ---"
             	git clone ${{ github.event.inputs.KSU_GIT }} -b ${{ github.event.inputs.KSU_GIT_BRANCH }} ./KernelSU
-                cd KernelSU
-                git checkout a540992e9b6395a245a3448e78f19e87d4ea3437
-                cd ..
             elif git ls-remote ${{ github.event.inputs.KSU_GIT }} > /dev/null; then
                 echo "--- KernelSU git link points to a valid git repo, but the branch specified is invalid, please specify the branch properly! ---"
                 exit 1
