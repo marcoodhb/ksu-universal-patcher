@@ -258,12 +258,8 @@ jobs:
             # Clone the repository which contains the patch
             git clone --depth=1 https://github.com/devnoname120/kernelsu-coccinelle.git
 
-            cd ./kernelsu-coccinelle/classic-hooks/
-            chmod +x apply.sh
             # Patch the kernel source with scope-minimized hooks
-            ./apply.sh ../../
-            
-            cd ../../
+            ./kernelsu-coccinelle/scope-minimized-hooks/apply.sh .
 
             # Cleanup
             rm -rf ./kernelsu-coccinelle/
