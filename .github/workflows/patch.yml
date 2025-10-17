@@ -1,9 +1,9 @@
-name: Patch a kernel with KernelSU patched and SuSFS
+ name: Patch a kernel with KernelSU patched and SuSFS
 on:
   workflow_dispatch:
     inputs:
       TARGET_REPO_URL:
-        description: 'url sin https:// del repositorio para subir el kernel parcheado:'
+        description: 'URL HTTPS completa del repositorio para subir el kernel parcheado:'
         required: true
       TARGET_BRANCH:
         description: 'Nombre de la nueva rama para el kernel parcheado:'
@@ -55,27 +55,10 @@ jobs:
             exit 1
         fi
 
-    - name: 'Debloat the OS'
-      run: |
-        export DEBIAN_FRONTEND=noninteractive
-        sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/local/share/powershell /usr/share/swift || true
-        sudo docker image prune --all --force
-        sudo apt-get purge -y \
-            aria2 ansible azure-cli shellcheck rpm xorriso zsync \
-            esl-erlang firefox gfortran-8 gfortran-9 google-chrome-stable \
-            google-cloud-sdk imagemagick \
-            libmagickcore-dev libmagickwand-dev libmagic-dev ant ant-optional kubectl \
-            mercurial apt-transport-https mono-complete libmysqlclient \
-            unixodbc-dev yarn chrpath libssl-dev libxft-dev \
-            libfreetype6 libfreetype6-dev libfontconfig1 libfontconfig1-dev \
-            snmp pollinate libpq-dev postgresql-client powershell ruby-full \
-            sphinxsearch subversion mongodb-org microsoft-edge-stable || true
-        sudo apt-get purge -y $(dpkg-query -W -f='${binary:Package}\n' | grep -E '^mysql|^php|^dotnet') || true
-        sudo apt-get autoremove -y
-        sudo apt-get autoclean -y
-
     - name: 'Setup dependencies and environment'
       run: |
+        sudo cp /etc/apt/sources.list.d/ubuntu.sources /etc/apt/sources.list.d/ubuntu.sources~
+        sudo sed -Ei 's/^Types: deb$/Types: deb deb-src/' /etc/apt/sources.list.d/ubuntu.sources
         sudo apt-get update -y
         sudo apt build-dep -y linux
         sudo apt-get build-dep -y coccinelle
@@ -131,7 +114,7 @@ jobs:
         git clone --depth=1 https://github.com/devnoname120/kernelsu-coccinelle.git
         ./kernelsu-coccinelle/scope-minimized-hooks/apply.sh .
         rm -rf ./kernelsu-coccinelle/
-        rm -rf ./android/abi_gki_protected_exports*
+        rm -rf ./android/abi_gki_protected_exports* || true
     
     - name: 'Push Patched Source to Target Repository'
       working-directory: './kernel-src'
