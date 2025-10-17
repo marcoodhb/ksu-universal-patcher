@@ -1,0 +1,147 @@
+name: Patch a kernel with KernelSU patched and SuSFS
+on:
+  workflow_dispatch:
+    inputs:
+      TARGET_REPO_URL:
+        description: 'URL HTTPS completa del repositorio para subir el kernel parcheado:'
+        required: true
+      TARGET_BRANCH:
+        description: 'Nombre de la nueva rama para el kernel parcheado:'
+        required: true
+      KSU_GIT:
+        description: 'Link al repositorio de KernelSU:'
+        required: false
+        default: 'https://github.com/KernelSU-Next/KernelSU-Next.git'
+      KSU_GIT_BRANCH:
+        description: 'ksu branch:'
+        required: false
+        default: 'next'
+      KERNEL_GIT:
+        description: 'Link al repositorio del kernel original:'
+        required: true
+      KERNEL_GIT_BRANCH:
+        description: 'Rama del kernel original:'
+        required: true
+
+jobs:
+  patch_and_push:
+    name: Patch and Push Kernel Source
+    runs-on: ubuntu-latest
+    steps:
+    - name: 'Checkout code'
+      uses: actions/checkout@v4
+      with:
+       fetch-depth: 0
+
+    - name: 'Validate workflow options'
+      run: |
+        if
+            if git ls-remote ${{ github.event.inputs.KERNEL_GIT }} | grep -w "${{ github.event.inputs.KERNEL_GIT_BRANCH }}" > /dev/null; then
+                echo "--- Kernel source git link and branch points to a valid git repo! ---"
+            elif git ls-remote ${{ github.event.inputs.KERNEL_GIT }} > /dev/null; then
+                echo "--- Kernel source git link points to a valid git repo, but the branch specified is invalid, please specify the branch properly! ---"
+                exit 1
+            else
+                echo "--- Kernel source git link and branch points to an invalid git repo, please specify them properly! ---"
+                exit 1
+            fi
+            if git ls-remote ${{ github.event.inputs.KSU_GIT }} | grep -w "${{ github.event.inputs.KSU_GIT_BRANCH }}" > /dev/null; then
+                echo "--- KernelSU git link and branch points to a valid git repo! ---"
+            elif git ls-remote ${{ github.event.inputs.KSU_GIT }} > /dev/null; then
+                echo "--- KernelSU git link points to a valid git repo, but the branch specified is invalid, please specify the branch properly! ---"
+                exit 1
+            else
+                echo "--- KernelSU git link and branch points to an invalid git repo, please specify them properly! ---"
+                exit 1
+            fi
+        then
+            echo "--- All link-related workflow options seem to be valid! ---"
+        fi
+
+    - name: 'Debloat the OS'
+      run: |
+        export DEBIAN_FRONTEND=noninteractive
+        sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/local/share/powershell /usr/share/swift || true
+        sudo docker image prune --all --force
+        sudo apt-get purge -y \
+            aria2 ansible azure-cli shellcheck rpm xorriso zsync \
+            esl-erlang firefox gfortran-8 gfortran-9 google-chrome-stable \
+            google-cloud-sdk imagemagick \
+            libmagickcore-dev libmagickwand-dev libmagic-dev ant ant-optional kubectl \
+            mercurial apt-transport-https mono-complete libmysqlclient \
+            unixodbc-dev yarn chrpath libssl-dev libxft-dev \
+            libfreetype6 libfreetype6-dev libfontconfig1 libfontconfig1-dev \
+            snmp pollinate libpq-dev postgresql-client powershell ruby-full \
+            sphinxsearch subversion mongodb-org microsoft-edge-stable || true
+        sudo apt-get purge -y $(dpkg-query -W -f='${binary:Package}\n' | grep -E '^mysql|^php|^dotnet') || true
+        sudo apt-get autoremove -y
+        sudo apt-get autoclean -y
+
+    - name: 'Setup dependencies and environment'
+      run: |
+        sudo apt-get update -y
+        sudo apt build-dep -y linux
+        sudo apt-get build-dep -y coccinelle
+        git clone --depth=1 https://github.com/coccinelle/coccinelle.git
+        cd ./coccinelle/
+        ./autogen
+        ./configure
+        make -j$(nproc --all)
+        sudo make -j$(nproc --all) install
+
+    - name: 'Clone kernel source'
+      run: |
+        rm -rf ./kernel-src*/
+        mkdir ./kernel-src-clone/
+        cd ./kernel-src-clone/
+        if git ls-remote ${{ github.event.inputs.KERNEL_GIT }} | grep -w "${{ github.event.inputs.KERNEL_GIT_BRANCH }}" > /dev/null; then
+            if repo init --no-repo-verify --git-lfs --depth=1 -u ${{ github.event.inputs.KERNEL_GIT }} -b ${{ github.event.inputs.KERNEL_GIT_BRANCH }}; then
+                repo sync -c --no-clone-bundle --no-tags --optimized-fetch --prune --force-sync -j$(nproc --all)
+                cd ..
+                ln -sf $(find ./kernel-src-clone/ -maxdepth 2 -type d -name "common" | head -n 1) ./kernel-src
+            else
+                rm -rf ./.repo/
+                cd ..
+                git clone --depth=1 ${{ github.event.inputs.KERNEL_GIT }} -b ${{ github.event.inputs.KERNEL_GIT_BRANCH }} ./kernel-src-clone/
+                ln -sf ./kernel-src-clone ./kernel-src
+            fi
+        else
+            exit 1
+        fi
+
+    - name: 'Clone any submodules if present'
+      working-directory: './kernel-src'
+      run: |
+        git submodule init; git submodule update
+
+    - name: 'Patch KernelSU repository into the kernel source'
+      working-directory: './kernel-src'
+      run: |
+        [ -L "drivers/kernelsu" ] && rm "drivers/kernelsu"
+        grep -q "kernelsu" "./drivers/Makefile" && sed -i '/kernelsu/d' "./drivers/Makefile"
+        grep -q "drivers/kernelsu/Kconfig" && sed -i '/drivers\/kernelsu\/Kconfig/d' "./drivers/Kconfig"
+        if [ -d "./KernelSU*" ]; then
+            rm -rf "./KernelSU*"
+        fi
+        git clone ${{ github.event.inputs.KSU_GIT }} -b ${{ github.event.inputs.KSU_GIT_BRANCH }} ./KernelSU
+        ln -sf ../KernelSU/kernel ./drivers/kernelsu
+        grep -q "kernelsu" "./drivers/Makefile" || printf "\nobj-\$(CONFIG_KSU) += kernelsu/\n" >> "./drivers/Makefile"
+        grep -q "source \"drivers/kernelsu/Kconfig\"" "./drivers/Kconfig" || sed -i "/endmenu/i\source \"drivers/kernelsu/Kconfig\"" "./drivers/Kconfig"
+
+    - name: 'Patch KernelSU manual scope-minimized hooks into the kernel source'
+      working-directory: './kernel-src'
+      run: |
+        git clone --depth=1 https://github.com/devnoname120/kernelsu-coccinelle.git
+        ./coccinelle/scope-minimized-hooks/apply.sh .
+        rm -rf ./coccinelle/
+        rm -rf ./android/abi_gki_protected_exports*
+    
+    - name: 'Push Patched Source to Target Repository'
+      working-directory: './kernel-src'
+      run: |
+        git config --global user.name "${{ github.actor }}"
+        git config --global user.email "${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com"
+        git add .
+        git commit -m "patch KSU scope minimized hooks [skip ci]"
+        git push https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@${{ github.event.inputs.TARGET_REPO_URL#https:// }} HEAD:refs/heads/${{ github.event.inputs.TARGET_BRANCH }} --force
+        echo "Successfully pushed patched kernel to branch '${{ github.event.inputs.TARGET_BRANCH }}' on repository '${{ github.event.inputs.TARGET_REPO_URL }}'"
