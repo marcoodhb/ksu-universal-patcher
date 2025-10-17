@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       TARGET_REPO_URL:
-        description: 'URL HTTPS completa del repositorio para subir el kernel parcheado:'
+        description: 'url sin https:// del repositorio para subir el kernel parcheado:'
         required: true
       TARGET_BRANCH:
         description: 'Nombre de la nueva rama para el kernel parcheado:'
@@ -31,31 +31,28 @@ jobs:
     - name: 'Checkout code'
       uses: actions/checkout@v4
       with:
-       fetch-depth: 0
+        fetch-depth: 0
 
     - name: 'Validate workflow options'
       run: |
-        if
-            if git ls-remote ${{ github.event.inputs.KERNEL_GIT }} | grep -w "${{ github.event.inputs.KERNEL_GIT_BRANCH }}" > /dev/null; then
-                echo "--- Kernel source git link and branch points to a valid git repo! ---"
-            elif git ls-remote ${{ github.event.inputs.KERNEL_GIT }} > /dev/null; then
-                echo "--- Kernel source git link points to a valid git repo, but the branch specified is invalid, please specify the branch properly! ---"
-                exit 1
-            else
-                echo "--- Kernel source git link and branch points to an invalid git repo, please specify them properly! ---"
-                exit 1
-            fi
-            if git ls-remote ${{ github.event.inputs.KSU_GIT }} | grep -w "${{ github.event.inputs.KSU_GIT_BRANCH }}" > /dev/null; then
-                echo "--- KernelSU git link and branch points to a valid git repo! ---"
-            elif git ls-remote ${{ github.event.inputs.KSU_GIT }} > /dev/null; then
-                echo "--- KernelSU git link points to a valid git repo, but the branch specified is invalid, please specify the branch properly! ---"
-                exit 1
-            else
-                echo "--- KernelSU git link and branch points to an invalid git repo, please specify them properly! ---"
-                exit 1
-            fi
-        then
-            echo "--- All link-related workflow options seem to be valid! ---"
+        set -e
+        if git ls-remote "${{ github.event.inputs.KERNEL_GIT }}" | grep -w "${{ github.event.inputs.KERNEL_GIT_BRANCH }}" > /dev/null; then
+            echo "--- Kernel source git link and branch points to a valid git repo! ---"
+        elif git ls-remote "${{ github.event.inputs.KERNEL_GIT }}" > /dev/null; then
+            echo "--- Kernel source git link points to a valid git repo, but the branch specified is invalid, please specify the branch properly! ---"
+            exit 1
+        else
+            echo "--- Kernel source git link and branch points to an invalid git repo, please specify them properly! ---"
+            exit 1
+        fi
+        if git ls-remote "${{ github.event.inputs.KSU_GIT }}" | grep -w "${{ github.event.inputs.KSU_GIT_BRANCH }}" > /dev/null; then
+            echo "--- KernelSU git link and branch points to a valid git repo! ---"
+        elif git ls-remote "${{ github.event.inputs.KSU_GIT }}" > /dev/null; then
+            echo "--- KernelSU git link points to a valid git repo, but the branch specified is invalid, please specify the branch properly! ---"
+            exit 1
+        else
+            echo "--- KernelSU git link and branch points to an invalid git repo, please specify them properly! ---"
+            exit 1
         fi
 
     - name: 'Debloat the OS'
@@ -132,8 +129,8 @@ jobs:
       working-directory: './kernel-src'
       run: |
         git clone --depth=1 https://github.com/devnoname120/kernelsu-coccinelle.git
-        ./coccinelle/scope-minimized-hooks/apply.sh .
-        rm -rf ./coccinelle/
+        ./kernelsu-coccinelle/scope-minimized-hooks/apply.sh .
+        rm -rf ./kernelsu-coccinelle/
         rm -rf ./android/abi_gki_protected_exports*
     
     - name: 'Push Patched Source to Target Repository'
@@ -143,5 +140,5 @@ jobs:
         git config --global user.email "${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com"
         git add .
         git commit -m "patch KSU scope minimized hooks [skip ci]"
-        git push https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@${{ github.event.inputs.TARGET_REPO_URL#https:// }} HEAD:refs/heads/${{ github.event.inputs.TARGET_BRANCH }} --force
+        git push https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@${{ github.event.inputs.TARGET_REPO_URL }} HEAD:refs/heads/${{ github.event.inputs.TARGET_BRANCH }} --force
         echo "Successfully pushed patched kernel to branch '${{ github.event.inputs.TARGET_BRANCH }}' on repository '${{ github.event.inputs.TARGET_REPO_URL }}'"
