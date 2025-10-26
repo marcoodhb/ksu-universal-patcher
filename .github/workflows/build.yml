@@ -312,12 +312,19 @@ jobs:
             # Compile using make
             if [ ${{ github.event.inputs.KERNEL_COMPILER }} == 'Clang/LLVM' ]; then
                 if [ ! -z ${{ github.event.inputs.KERNEL_COMPILER_TOOLCHAIN }} ]; then
-                    make ARCH=${{ github.event.inputs.KERNEL_ARCH }} SUBARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_COMPAT=arm-linux-gnueabi- CC=$(realpath ~/**/compiler-toolchain)/${{ github.event.inputs.KERNEL_COMPILER_PREFIX }}clang LLVM=1 LLVM_IAS=1 LD=$(realpath ~/**/compiler-toolchain)/${{ github.event.inputs.KERNEL_COMPILER_PREFIX }}ld.lld AR=$(realpath ~/**/compiler-toolchain)/${{ github.event.inputs.KERNEL_COMPILER_PREFIX }}llvm-ar NM=$(realpath ~/**/compiler-toolchain)/${{ github.event.inputs.KERNEL_COMPILER_PREFIX }}llvm-nm STRIP=$(realpath ~/**/compiler-toolchain)/${{ github.event.inputs.KERNEL_COMPILER_PREFIX }}llvm-strip OBJCOPY=$(realpath ~/**/compiler-toolchain)/${{ github.event.inputs.KERNEL_COMPILER_PREFIX }}llvm-objcopy OBJDUMP=$(realpath ~/**/compiler-toolchain)/${{ github.event.inputs.KERNEL_COMPILER_PREFIX }}llvm-objdump OBJSIZE=$(realpath ~/**/compiler-toolchain)/${{ github.event.inputs.KERNEL_COMPILER_PREFIX }}llvm-size READELF=$(realpath ~/**/compiler-toolchain)/${{ github.event.inputs.KERNEL_COMPILER_PREFIX }}llvm-readelf HOSTCC=$(realpath ~/**/compiler-toolchain)/${{ github.event.inputs.KERNEL_COMPILER_PREFIX }}clang HOSTCXX=$(realpath ~/**/compiler-toolchain)/${{ github.event.inputs.KERNEL_COMPILER_PREFIX }}clang++ HOSTAR=$(realpath ~/**/compiler-toolchain)/${{ github.event.inputs.KERNEL_COMPILER_PREFIX }}llvm-ar HOSTLD=$(realpath ~/**/compiler-toolchain)/${{ github.event.inputs.KERNEL_COMPILER_PREFIX }}ld.lld -j$(nproc --all) O=out
+                    make ARCH=${{ github.event.inputs.KERNEL_ARCH }} SUBARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_COMPAT=arm-linux-gnueabi- CC=$(realpath ~/**/compiler-toolchain)/${{ github.event.inputs.KERNEL_COMPILER_PREFIX }}clang LLVM=1 LLVM_IAS=1 LD=$(realpath ~/**/compiler-toolchain)/${{ github.event.inputs.KERNEL_COMPILER_PREFIX }}ld.lld AR=$(realpath ~/**/compiler-toolchain)/${{ github.event.inputs.KERNEL_COMPILER_PREFIX }}llvm-ar NM=$(realpath ~/**/compiler-toolchain)/${{ github.event.inputs.KERNEL_COMPILER_PREFIX }}llvm-nm STRIP=$(realpath ~/**/compiler-toolchain)/${{ github.event.inputs.KERNEL_COMPILER_PREFIX }}llvm-strip OBJCOPY=$(realpath ~/**/compiler-toolchain)/${{ github.event.inputs.KERNEL_COMPILER_PREFIX }}llvm-objcopy OBJDUMP=$(realpath ~/**/compiler-toolchain)/${{ github.event.inputs.KERNEL_COMPILER_PREFIX }}llvm-objdump OBJSIZE=$(realpath ~/**/compiler-toolchain)/${{ github.event.inputs.KERNEL_COMPILER_PREFIX }}llvm-size READELF=$(realpath ~/**/compiler-toolchain)/${{ github.event.inputs.KERNEL_COMPILER_PREFIX }}llvm-readelf HOSTCC=$(realpath ~/**/compiler-toolchain)/${{ github.event.inputs.KERNEL_COMPILER_PREFIX }}clang HOSTCXX=$(realpath ~/**/compiler-toolchain)/${{ github.event.inputs.KERNEL_COMPILER_PREFIX }}clang++ HOSTAR=$(realpath ~/**/compiler-toolchain)/${{ github.event.inputs.KERNEL_COMPILER_PREFIX }}llvm-ar HOSTLD=$(realpath ~/**/compiler-toolchain)/${{ github.event.inputs.KERNEL_COMPILER_PREFIX }}ld.lld -j$(nproc --all) O=out > ../build.log 2>&1
                 else
                     exit 3
                 fi
             fi
 
+        - name: 'Upload error log on failure'
+          if: failure()
+          uses: actions/upload-artifact@v4
+          with:
+            name: build-error-log
+            path: ./build.log
+        
         - name: 'Organize boot artifacts'
           working-directory: './kernel-src'
           run: |
